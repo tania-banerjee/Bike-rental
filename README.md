@@ -19,6 +19,3 @@ I have crunched around 3,400,000 rows of data to understand-
 1. Try finding something at the intersection of rideduration and direction taken. This would give you the answer if those "roundtrips" are happening or just someone starting and ending their ride instantly(and if this means they are facing problems in using the service). 
 
 2. I have run 4 loops to "fill in the blanks", this has made the running time really long. However, you may drop the loops and proceed as those just filled in 10,000 rows and those (string)observations were pretty much useless.
-
-## WARNING: 
-Since this is my first stint with R, I did the mistake of knitting the entire code in a RMarkdown, as a result that HTML file now contains loads of elements from the console which were basically a part of my cleaning process.
