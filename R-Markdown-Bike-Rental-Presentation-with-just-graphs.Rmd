@@ -1,0 +1,281 @@
+---
+title: "R Markdown Bike Rental Presentation with just graphs"
+author: "Tania banerjee"
+date: "2022-10-13"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## The Bike Rental Project
+
+A bike rental company based in Chicago has two types of consumers:
+
+- Member
+- Casual
+
+They want to convert the Casual consumers into Member.
+
+## Vision and Mission
+
+#### *Vision*:
+
+To convert Casual riders into Member riders
+
+#### *Mission*:
+
+The marketing team of the bike-rental company will come up with offers that would be targeted to the rider-type Casual. To achieve this a comparison needs to be made between the Casual vs Member to understand how the two groups use the bikes differently.
+
+## Goals
+
+### About 3,400,000 rows of data have been crunched to understand -
+
+
+
+- How the rental bikes are used by days of the week by the two groups.
+- How the variance of the bikes fluctuates according to months.
+- What is the mean riding duration for the two groups.
+- Is there a variance in direction taken for the two groups.
+
+## Data Source
+
+The data has been made available by Motivate International Inc. under this license - https://ride.divvybikes.com/data-license-agreement . 12 months data from April 2020 to March 2021 have been used for this project.
+
+
+## Plot 1
+
+
+```{r, echo = FALSE, results= FALSE, warning=FALSE, message= FALSE}
+install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+library(tidyverse)
+install.packages("readr", repos = "http://cran.us.r-project.org")
+library(readr)
+install.packages("anytime", repos = "http://cran.us.r-project.org")
+library(anytime)
+install.packages("stringr", repos = "http://cran.us.r-project.org")
+library(stringr)
+install.packages("ggplot2", repos = "http://cran.us.r-project.org")
+library(ggplot2)
+
+library(lubridate)
+install.packages("dplyr", repos = "http://cran.us.r-project.org")
+library(dplyr)
+install.packages("scales", repos = "http://cran.us.r-project.org")
+library(scales)
+
+Apr2020 <- read_csv("202004-divvy-tripdata.csv")
+May2020 <- read_csv("202005-divvy-tripdata.csv")
+June2020 <- read_csv("202006-divvy-tripdata.csv")
+July2020 <- read_csv("202007-divvy-tripdata.csv")
+Aug2020 <- read_csv("202008-divvy-tripdata.csv")
+Sep2020 <- read_csv("202009-divvy-tripdata.csv")
+Oct2020 <- read_csv("202010-divvy-tripdata.csv")
+Nov2020 <- read_csv("202011-divvy-tripdata.csv")
+Dec2020 <- read_csv("202012-divvy-tripdata.csv")
+Jan2021 <- read_csv("202101-divvy-tripdata.csv")
+Feb2021 <- read_csv("202102-divvy-tripdata.csv")
+Mar2021 <- read_csv("202103-divvy-tripdata.csv")
+
+apr1 <- Apr2020 %>% 
+  mutate(started_at = dmy_hm(started_at),
+         ended_at = dmy_hm(ended_at))
+
+tripdata <- rbind(apr1, May2020, June2020, July2020, Aug2020, Sep2020, Oct2020, Nov2020, Dec2020, Jan2021, Feb2021, Mar2021)
+
+tripdata1 <- tripdata %>% 
+  filter(started_at<ended_at | started_at==ended_at)
+
+tripdata_2 <- tripdata1
+
+tripdata_3 <- tripdata_2 %>% 
+  mutate(rideduration = ended_at - started_at) %>% 
+  mutate(lat_difference = start_lat - end_lat, lng_difference = start_lng - end_lng) %>% 
+  mutate(north_south_dir = ifelse(lat_difference<0,"north",(ifelse(lat_difference==0,"no change",(ifelse((!is.na(lat_difference)),"south",NA)))))) %>% 
+  mutate(east_west_dir = ifelse(lng_difference<0, "east",(ifelse(lng_difference==0, "no change", (ifelse((!is.na(lng_difference)),"west",NA)))))) %>% 
+  mutate(dir = (ifelse((!is.na(north_south_dir)) & (!is.na(east_west_dir)), paste(north_south_dir,east_west_dir), NA))) %>%
+  mutate(dir = str_replace(string= dir, pattern = "no change no change", replacement = "roundtrip")) %>% 
+  mutate(dir = str_replace(string= dir, pattern = "no change east", replacement = "east")) %>% 
+  mutate(dir = str_replace(string= dir, pattern = "no change west", replacement = "west")) %>% 
+  mutate(dir = str_replace(string= dir, pattern = "north no change", replacement = "north")) %>% 
+  mutate(dir = str_replace(string= dir, pattern = "south no change", replacement = "south")) %>% 
+  mutate(route = (ifelse((!is.na(start_station_id)) & (!is.na(end_station_id)), as.numeric(paste0(start_station_id,end_station_id)), NA))) %>% 
+  mutate(started_at_weekday = weekdays(started_at)) %>% 
+  mutate(started_in_month = month(started_at))
+
+casual <- tripdata_3 %>% 
+  filter(member_casual == "casual")
+
+member <- tripdata_3 %>% 
+  filter(member_casual == "member")
+
+
+casual_analysis <- casual %>% 
+  summarize(total_rides_casual = n_distinct(ride_id), mean_rideduration_casual = mean(rideduration), min_rideduration_casual = min(rideduration), max_rideduration_casual = max(rideduration))
+View(casual_analysis)
+
+casual_rides_various_hours <- casual %>% 
+  count(hour(started_at)) %>% 
+  rename(count=n) %>% 
+  rename(hour=1)
+View(casual_rides_various_hours)
+
+casual_dayofweek_distribution <- casual %>% 
+  group_by(started_at_weekday) %>% 
+  count(started_at_weekday) %>% 
+  rename(count=n) %>% 
+  mutate(percent= round(c((count/1427134)*100), 2))
+View(casual_dayofweek_distribution)
+
+casual_monthly_rides <- casual %>% 
+  group_by(started_in_month) %>% 
+  count(started_in_month) %>% 
+  rename(count=n) %>% 
+  mutate(percent= round(c((count/1427134)*100), 2))
+View(casual_monthly_rides)
+
+casual_dir_distribution <- casual %>% 
+  group_by(dir) %>% 
+  count(dir) %>% 
+  rename(count=n) %>% 
+  mutate(percent= round(c((count/1427134)*100), 2))
+View(casual_dir_distribution)
+
+
+
+member_analysis <- member %>% 
+  summarize(total_rides_member = n_distinct(ride_id), mean_rideduration_member = mean(rideduration), min_rideduration_member = min(rideduration), max_rideduration_member = max(rideduration))
+View(member_analysis)
+
+member_rides_various_hours <- member %>% 
+  count(hour(started_at)) %>% 
+  rename(count=n) %>% 
+  rename(hour=1)
+View(member_rides_various_hours)
+
+member_dayofweek_distribution <- member %>% 
+  group_by(started_at_weekday) %>% 
+  count(started_at_weekday) %>% 
+  rename (count=n) %>% 
+  mutate(percent= round(c((count/2052099)*100), 2))
+View(member_dayofweek_distribution)
+
+member_monthly_rides <- member %>% 
+  group_by(started_in_month) %>% 
+  count(started_in_month) %>% 
+  rename (count=n) %>% 
+  mutate(percent= round(c((count/2052099)*100), 2))
+View(member_monthly_rides)
+
+member_dir_distribution <- member %>% 
+  group_by(dir) %>% 
+  count(dir) %>% 
+  rename (count=n) %>% 
+  mutate(percent= round(c((count/2052099)*100), 2))
+View(member_dir_distribution)
+
+#making these tables below for direction distribution grouped bar chart
+
+master_table <- rbind(member_dir_distribution,casual_dir_distribution)
+type= c("member","member","member","member","member","member","member","member","member","member","casual","casual","casual","casual","casual","casual","casual","casual","casual","casual")
+View(type)
+
+master_table <- data.frame(type, master_table)
+
+View(master_table)
+
+#making these tables below for day of the week distribution grouped bar chart
+
+master_table_weekday <- rbind(member_dayofweek_distribution,casual_dayofweek_distribution)
+types= c("member","member","member","member","member","member","member","casual","casual","casual","casual","casual","casual","casual")
+master_table_weekday <- data.frame(types,master_table_weekday)
+View(master_table_weekday)
+
+```
+
+
+```{r}
+ggplot()+geom_line(member_rides_various_hours,mapping=aes(x=hour, y=count, color="member")) + geom_line(casual_rides_various_hours, mapping=aes(x=hour, y=count, color="casual"))+
+  labs(title="Member vs Casual: Rides at various hours of the day", subtitle="Comparison between members vs casuals",caption="Data is acquired from two tables in the analysis part of r-script of the project")+
+  theme(axis.text.x=element_text(angle=90,vjust=0.5)) + scale_x_continuous(breaks = seq(0, 23, by = 1))
+```
+
+INSIGHT: We find out that casual riders do not peak in morning, they only peak in evening however there is a small spike in morning for members.
+
+## Plot 2
+
+```{r}
+ggplot()+geom_col(member_monthly_rides,mapping=aes(x=factor(month.abb[started_in_month],levels=month.abb),y=count/100000),fill="purple")+geom_col(casual_monthly_rides,mapping=aes(x=factor(month.abb[started_in_month],levels=month.abb),y=count/100000),fill="grey")+
+  labs(y="Count (in Lakhs)", x= "months", title="Member vs Casual: Rides in various months column chart", subtitle="Members vs Casual", caption="Data is acquired from two tables in the analysis part of rscript of the project")
+```
+
+INSIGHT: Difference between no.of Member vs no.of Casual is very high for Jan, Dec. Members were much higher. It was moderately high for Nov and Oct. Difference was least for July.
+
+## Plot 3
+
+```{r}
+ggplot(master_table,aes(x=dir,y=percent,fill=type))+geom_col(position="dodge")+labs(x="direction", y="percentage", title="Member vs Casual: Direction taken", subtitle="Group bar chart comparing the directions taken by casuals and members")+
+  theme(axis.text.x=element_text(angle=90,vjust=0.5))
+```
+
+**INSIGHT: Casual take far more roundtrips than Member.**
+
+## Plot 4
+
+```{r}
+ggplot(master_table_weekday, aes(x=started_at_weekday, y=percent, fill=types))+geom_col(position= "dodge")+labs(x="weekday",y="percentage",title="Member vs Casual:Day of week distribution")+
+  theme(axis.text.x=element_text(angle=90,vjust=0.5))
+```
+
+**INSIGHT: Member use everyday equivalently. Casual use mostly on Saturday, Sunday, closely followed by Friday.**
+
+## Plot 5
+
+```{r, echo = FALSE, results= FALSE, warning=FALSE, message= FALSE}
+mean_rideduration_secs <- c(966.8946,2698.147)
+member_type <- c('member','casual')
+mean_rideduration_mem_cas <- data.frame(member_type,mean_rideduration_secs)
+```
+
+```{r}
+ggplot()+geom_col(mean_rideduration_mem_cas,mapping=aes(x=member_type,y=mean_rideduration_secs,fill=member_type))+labs(title="Member Vs Casual: Mean rideduration")
+```
+
+**INSIGHT: The mean of Casual is much higher(more than double) that of Member.**
+
+## Plot 6
+```{r}
+ggplot(tripdata_3)+geom_bar(mapping=aes(x=rideable_type,fill=rideable_type))+ scale_y_continuous(labels=comma)+ facet_grid(member_casual~started_in_month)+theme(axis.text.x=element_blank()) +labs(title="Member vs Casual: How the 3 types of bikes were used in different months")
+```
+
+INSIGHT:
+- In Jan members used much more classic bikes compared to casuals.
+- In March casual who are less in number used docked bikes but none of the members used it.
+- In Dec comparatively a large set of members used classic bikes.
+
+## Plot 7
+
+```{r}
+ggplot(tripdata_3)+geom_bar(mapping=aes(x=rideable_type,fill=rideable_type))+ scale_y_continuous(labels=comma)+ facet_grid(member_casual~started_at_weekday)+theme(axis.text.x=element_blank()) +labs(title="Member vs Casual: How the 3 types of bikes were used in different days of week")
+```
+
+**INSIGHT: Electric bike consumption almost same for Member and Casual on Saturdays.**
+
+## CONCLUSION
+
+### Members use the bikes for:
+
+**- Uniform commute across days of weeks and months**
+
+**- They ride for shorter duration**
+
+**- They rarely take roundtrips**
+
+### Casual use the bikes for:
+
+**- Rides mostly on weekends and summers**
+
+**- They ride for longer duration**
+
+**- They often take roundtrips**
